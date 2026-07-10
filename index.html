@@ -398,14 +398,6 @@
     }
 
   </style>
-    <!-- Microsoft Clarity -->
-    <script type="text/javascript">
-        (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-        })(window, document, "clarity", "script", "xk3tlzfcl2");
-    </script>
 </head>
 <body>
   <div class="stage-shell" id="stageShell">
@@ -442,7 +434,7 @@
       <audio id="music" src="assets/monsoon-music.mp3" autoplay loop preload="auto" playsinline></audio>
 
       <div class="popup-overlay" id="popupOverlay" role="dialog" aria-modal="true" aria-label="Rapido booking message" aria-hidden="true">
-        <a class="popup-link" href="https://www.rapido.bike/" target="_blank" rel="noopener noreferrer" aria-label="Open Rapido website" onclick="window.trackCTA && window.trackCTA()">
+        <a class="popup-link" href="https://m.rapido.cc/Ewte/wi3v7ayi" target="_blank" rel="noopener noreferrer" aria-label="Open Rapido website">
           <div class="popup-card">
             <img class="popup-image" id="popupImage" src="assets/popup.png" alt="We’ve got you covered in every way possible. Book now." />
             <canvas id="popupRainCanvas" aria-hidden="true"></canvas>
@@ -455,49 +447,6 @@
 
   <script>
     (() => {
-      /* ================= TRACKING ================= */
-      const SHEET_URL = "https://script.google.com/macros/s/AKfycbxRj5tcPEuCORd9CcMg4yojfKTB3qjazBMvzODJmpsO-8Xm3SPRzPxg6DkQjNXuokGiRg/exec";
-      const CAMPAIGN = "monsoon_book_2025";
-      const uid = new URLSearchParams(window.location.search).get('uid') || 'unknown';
-      const city = new URLSearchParams(window.location.search).get('city') || 'unknown';
-
-      if (window.clarity) {
-        clarity("set", "uid", uid);
-        clarity("set", "campaign", CAMPAIGN);
-        clarity("set", "city", city);
-      }
-
-      function logEvent(eventName) {
-        if (window.clarity) { clarity("event", eventName); }
-        try {
-          fetch(SHEET_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              timestamp: new Date().toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'}),
-              uid: uid,
-              campaign: CAMPAIGN,
-              event: eventName,
-              city: city
-            })
-          });
-        } catch(e) {}
-      }
-
-      const eventTracked = {};
-      function logOnce(eventName) {
-        if (eventTracked[eventName]) return;
-        eventTracked[eventName] = true;
-        logEvent(eventName);
-      }
-
-      logEvent("page_landed");
-      logOnce("page1_viewed");
-
-      /* expose CTA tracker for the popup link's onclick */
-      window.trackCTA = function() { logEvent("cta_clicked"); };
-
       const stage = document.getElementById('stage');
       const pageTrack = document.getElementById('pageTrack');
       const headline1 = document.getElementById('headline1');
@@ -587,7 +536,6 @@
           popupOverlay.classList.add('is-visible');
           popupOverlay.setAttribute('aria-hidden', 'false');
           syncControlsVisibility();
-          logOnce("popup_shown");
         });
       }
 
@@ -612,9 +560,6 @@
         hidePopup();
 
         page = target;
-
-        if (page === 0) logOnce("page1_viewed");
-        if (page === 1) logOnce("page2_viewed");
 
         requestAnimationFrame(() => {
           pageTrack.classList.toggle('show-page-2', page === 1);
