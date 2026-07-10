@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#ead8ad" />
+  <title></title>
+  <style>
+    :root {
+      --stage-w: 500px;
+      --stage-h: 640px;
+      --ink: #503017;
+      --scale: 1;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #17130f;
+      overflow: hidden;
+      touch-action: pan-y;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      font-family: "Segoe Print", "Comic Sans MS", cursive;
+    }
+
+    .stage-shell {
+      width: calc(var(--stage-w) * var(--scale));
+      height: calc(var(--stage-h) * var(--scale));
+      position: relative;
+    }
+
+    .stage {
+      width: var(--stage-w);
+      height: var(--stage-h);
+      position: absolute;
+      inset: 0 auto auto 0;
+      transform: scale(var(--scale));
+      transform-origin: top left;
+      overflow: hidden;
+      background: #f2e5c5 url("assets/final_bg.jpg") center/cover no-repeat;
+      box-shadow: 0 18px 55px rgba(0, 0, 0, .38);
+      isolation: isolate;
+      touch-action: pan-y;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* Everything outside the slideshow area stays completely static. */
+    .brand {
+      position: absolute;
+      top: 28px;
+      left: 50%;
+      width: 108px;
+      height: auto;
+      transform: translateX(-50%);
+      z-index: 12;
+      filter: drop-shadow(0 1px 0 rgba(255,255,255,.35));
+    }
+
+    .headline-area {
+    position: absolute;
+    top: 120px;
+    left: 50%;
+    width: 270px;
+    height: 102px;
+    transform: translateX(-50%);
+    z-index: 11;
+    }
+
+    .headline {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: auto;
+      opacity: 0;
+      transform: translateY(5px) scale(.992);
+      transition: opacity 330ms ease, transform 420ms ease;
+      pointer-events: none;
+    }
+
+    .headline.is-active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .book-wrap {
+      position: absolute;
+      left: 15px;
+      top: 210px;
+      width: 470px;
+      height: 361px;
+      z-index: 5;
+      filter: drop-shadow(0 13px 10px rgba(59,38,18,.2));
+    }
+
+    .book-frame {
+      position: absolute;
+      inset: 0;
+      width: 470px;
+      height: auto;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Two-image slideshow aligned over the open book artwork. */
+    .page-viewport {
+      position: absolute;
+      left: 190px;
+      top: 45px;
+      width: 220px;
+      height: 243px;
+      z-index: 3;
+      overflow: hidden;
+      border-radius: 3px 8px 9px 3px / 4px 6px 10px 5px;
+      clip-path: polygon(2% 1%, 96% 0, 100% 3%, 99% 96%, 96% 100%, 3% 99%, 0 96%, 0 4%);
+      box-shadow:
+        inset 7px 0 11px rgba(70,42,20,.13),
+        inset -2px 0 4px rgba(255,244,211,.12),
+        0 1px 2px rgba(65,36,12,.16);
+      background: #d6b77e;
+    }
+
+    .page-track {
+      position: absolute;
+      inset: 0;
+      width: 200%;
+      height: 100%;
+      display: flex;
+      transform: translate3d(0, 0, 0);
+      transition: transform 650ms cubic-bezier(.22,.61,.36,1);
+      will-change: transform;
+    }
+
+    .page-track.show-page-2 {
+      transform: translate3d(-50%, 0, 0);
+    }
+
+    .slide-page {
+      flex: 0 0 50%;
+      width: 50%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      filter: saturate(.96) contrast(.99) brightness(.995);
+      -webkit-user-drag: none;
+      user-select: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .page-track {
+        transition-duration: 180ms;
+      }
+    }
+
+    /* Rain is clipped strictly to the visible book-page artwork. */
+    #rainCanvas {
+      position: absolute;
+      left: 190px;
+      top: 45px;
+      width: 220px;
+      height: 243px;
+      pointer-events: none;
+      z-index: 10;
+      opacity: .98;
+      mix-blend-mode: screen;
+      overflow: hidden;
+      border-radius: 3px 8px 9px 3px / 4px 6px 10px 5px;
+      clip-path: polygon(2% 1%, 96% 0, 100% 3%, 99% 96%, 96% 100%, 3% 99%, 0 96%, 0 4%);
+      filter: drop-shadow(0 0 .45px rgba(255,255,255,.34));
+    }
+
+    .controls {
+      position: absolute;
+      left: 50%;
+      bottom: 44px;
+      z-index: 85;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      transform: translateX(-50%);
+      padding: 4px;
+      pointer-events: auto;
+      opacity: 1;
+      visibility: visible;
+      will-change: opacity, transform;
+      transition:
+        opacity 280ms cubic-bezier(.22,.61,.36,1),
+        transform 320ms cubic-bezier(.22,.61,.36,1),
+        visibility 0s linear 0s;
+    }
+
+    .controls.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateX(-50%) translateY(8px) scale(.96);
+      transition:
+        opacity 220ms ease,
+        transform 260ms ease,
+        visibility 0s linear 220ms;
+    }
+
+    .hand-btn {
+      appearance: none;
+      width: 36px;
+      height: 36px;
+      border: 2px solid rgba(80,48,23,.72);
+      border-radius: 48% 52% 46% 54% / 52% 45% 55% 48%;
+      background: rgba(248,237,207,.44);
+      color: var(--ink);
+      font: 700 22px/1 Arial, sans-serif;
+      cursor: pointer;
+      position: relative;
+      padding: 0 0 2px;
+      display: grid;
+      place-items: center;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .16s ease, background .16s ease, opacity .16s ease, box-shadow .16s ease;
+      will-change: transform;
+    }
+
+    .hand-btn::before,
+    .hand-btn::after { content: none; }
+
+    .hand-btn:hover {
+      transform: translateY(-1px) rotate(-.35deg);
+      background: rgba(248,237,207,.78);
+      box-shadow: 0 5px 14px rgba(0,0,0,.16);
+    }
+
+    .hand-btn:active { transform: translateY(1px) scale(.98); }
+    .hand-btn:focus-visible { outline: 2px dashed var(--ink); outline-offset: 3px; }
+
+    .hand-btn:disabled {
+      opacity: .42;
+      cursor: default;
+      transform: none;
+    }
+
+    #nextBtn:not(:disabled) {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fff7df;
+      box-shadow: 0 5px 14px rgba(45, 25, 10, .24);
+    }
+
+    #nextBtn:not(:disabled):hover {
+      background: #3f2411;
+      border-color: #3f2411;
+      color: #ffffff;
+    }
+
+    .music-btn {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 75;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(255,255,255,.38);
+      border-radius: 50%;
+      background: rgba(0,0,0,.52);
+      color: #ffffff;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      box-shadow:
+        0 8px 20px rgba(0,0,0,.28),
+        inset 0 1px 0 rgba(255,255,255,.22),
+        inset 0 -1px 0 rgba(0,0,0,.30);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+    }
+
+    .music-btn:hover {
+      transform: translateY(-1px) scale(1.03);
+      filter: brightness(1.04);
+      box-shadow:
+        0 10px 24px rgba(0,0,0,.38),
+        inset 0 1px 0 rgba(255,255,255,.28),
+        inset 0 -1px 0 rgba(0,0,0,.34);
+    }
+
+    .music-btn:active { transform: translateY(1px) scale(.97); }
+
+    .music-btn svg {
+      width: 19px;
+      height: 19px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .music-btn.is-muted {
+      background: rgba(0,0,0,.68);
+      color: rgba(255,255,255,.72);
+      border-color: rgba(255,255,255,.24);
+    }
+
+    .music-btn:focus-visible { outline: 2px solid rgba(255,255,255,.82); outline-offset: 3px; }
+
+
+
+
+    /* Page-2 popup: appears after a 3-second pause and dims the full stage. */
+    .popup-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 60;
+      display: grid;
+      place-items: center;
+      padding: 68px 36px;
+      background: rgba(2, 2, 2, .92);
+      -webkit-backdrop-filter: blur(2.4px);
+      backdrop-filter: blur(2.4px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 440ms ease, visibility 0s linear 440ms;
+    }
+
+    .popup-overlay.is-visible {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 440ms ease;
+    }
+
+    .popup-link {
+      display: block;
+      width: min(400px, 100%);
+      max-height: 100%;
+      text-decoration: none;
+      border-radius: 30px;
+      cursor: pointer;
+    }
+
+    .popup-link:focus-visible {
+      outline: 3px solid rgba(255, 204, 0, .95);
+      outline-offset: 5px;
+    }
+
+    .popup-card {
+      position: relative;
+      width: min(400px, 100%);
+      max-height: 100%;
+      border-radius: 30px;
+      overflow: hidden;
+      box-shadow: 0 28px 62px rgba(0, 0, 0, .62);
+      transform: translateY(16px) scale(.955);
+      opacity: 0;
+      transition: transform 520ms cubic-bezier(.2,.8,.2,1), opacity 400ms ease;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .popup-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 30px;
+      position: relative;
+      z-index: 1;
+    }
+
+    #popupRainCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+      pointer-events: none;
+      z-index: 2;
+      opacity: .98;
+      mix-blend-mode: screen;
+      border-radius: inherit;
+      filter: drop-shadow(0 0 .45px rgba(255,255,255,.34));
+    }
+
+    .popup-overlay.is-visible .popup-card {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+  </style>
+    <!-- Microsoft Clarity -->
+    <script type="text/javascript">
+        (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "xk3tlzfcl2");
+    </script>
+</head>
+<body>
+  <div class="stage-shell" id="stageShell">
+    <main class="stage" id="stage" aria-label="Rapido monsoon slideshow">
+      <img class="brand" src="assets/rapido-logo.png" alt="Rapido" />
+
+      <div class="headline-area" aria-live="polite">
+        <img class="headline is-active" id="headline1" src="assets/text-image1.png" alt="For every puddle you slipped into" />
+        <img class="headline" id="headline2" src="assets/text-image2.png" alt="For every game that got ruined" />
+      </div>
+
+      <div class="book-wrap" id="bookWrap" aria-label="Two-page slideshow">
+        <img class="book-frame" src="assets/final.png" alt="Open vintage book" />
+        <div class="page-viewport">
+          <div class="page-track" id="pageTrack">
+            <img class="slide-page" src="assets/paper1.png" alt="A child near a rain puddle" />
+            <img class="slide-page" src="assets/paper2.png" alt="A child waiting for rain to stop" />
+          </div>
+        </div>
+        <canvas id="rainCanvas" width="220" height="243" aria-hidden="true"></canvas>
+      </div>
+      <button class="music-btn" id="musicBtn" type="button" aria-label="Mute music" title="Mute music">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 5 6.8 8.4H3.5v7.2h3.3L11 19z" />
+          <path d="M15.4 8.1a5.4 5.4 0 0 1 0 7.8" />
+          <path d="M18.2 5.4a9.2 9.2 0 0 1 0 13.2" />
+        </svg>
+      </button>
+      <nav class="controls" aria-label="Book navigation">
+        <button class="hand-btn" id="prevBtn" type="button" aria-label="Previous page" title="Previous page">←</button>
+        <button class="hand-btn" id="nextBtn" type="button" aria-label="Next page" title="Next page">→</button>
+      </nav>
+
+      <audio id="music" src="assets/monsoon-music.mp3" autoplay loop preload="auto" playsinline></audio>
+
+      <div class="popup-overlay" id="popupOverlay" role="dialog" aria-modal="true" aria-label="Rapido booking message" aria-hidden="true">
+        <a class="popup-link" href="https://www.rapido.bike/" target="_blank" rel="noopener noreferrer" aria-label="Open Rapido website" onclick="window.trackCTA && window.trackCTA()">
+          <div class="popup-card">
+            <img class="popup-image" id="popupImage" src="assets/popup.png" alt="We’ve got you covered in every way possible. Book now." />
+            <canvas id="popupRainCanvas" aria-hidden="true"></canvas>
+          </div>
+        </a>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      /* ================= TRACKING ================= */
+      const SHEET_URL = "https://script.google.com/macros/s/AKfycbxRj5tcPEuCORd9CcMg4yojfKTB3qjazBMvzODJmpsO-8Xm3SPRzPxg6DkQjNXuokGiRg/exec";
+      const CAMPAIGN = "monsoon_book_2025";
+      const uid = new URLSearchParams(window.location.search).get('uid') || 'unknown';
+      const city = new URLSearchParams(window.location.search).get('city') || 'unknown';
+
+      if (window.clarity) {
+        clarity("set", "uid", uid);
+        clarity("set", "campaign", CAMPAIGN);
+        clarity("set", "city", city);
+      }
+
+      function logEvent(eventName) {
+        if (window.clarity) { clarity("event", eventName); }
+        try {
+          fetch(SHEET_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              timestamp: new Date().toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'}),
+              uid: uid,
+              campaign: CAMPAIGN,
+              event: eventName,
+              city: city
+            })
+          });
+        } catch(e) {}
+      }
+
+      const eventTracked = {};
+      function logOnce(eventName) {
+        if (eventTracked[eventName]) return;
+        eventTracked[eventName] = true;
+        logEvent(eventName);
+      }
+
+      logEvent("page_landed");
+      logOnce("page1_viewed");
+
+      /* expose CTA tracker for the popup link's onclick */
+      window.trackCTA = function() { logEvent("cta_clicked"); };
+
+      const stage = document.getElementById('stage');
+      const pageTrack = document.getElementById('pageTrack');
+      const headline1 = document.getElementById('headline1');
+      const headline2 = document.getElementById('headline2');
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      const controls = document.querySelector('.controls');
+      const music = document.getElementById('music');
+      const musicBtn = document.getElementById('musicBtn');
+      const popupOverlay = document.getElementById('popupOverlay');
+      const popupImageEl = document.getElementById('popupImage');
+      const popupRainCanvas = document.getElementById('popupRainCanvas');
+
+      const AUTO_MS = 1600;
+      const SLIDE_MS = 650;
+      let paperReady = true;
+      let page = 0;
+      let autoTimer = null;
+      let locked = false;
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let horizontalSwipe = false;
+      let popupTimer = null;
+      let controlsRevealTimer = null;
+      let slideTimer = null;
+
+      function fitStage() {
+        const gap = 18;
+        const scale = Math.min(1, (window.innerWidth - gap) / 500, (window.innerHeight - gap) / 640);
+        document.documentElement.style.setProperty('--scale', Math.max(.42, scale).toFixed(4));
+      }
+
+      function showHeadline(index) {
+        headline1.classList.toggle('is-active', index === 0);
+        headline2.classList.toggle('is-active', index === 1);
+      }
+
+      function syncControlsVisibility() {
+        const popupOpen = popupOverlay.classList.contains('is-visible');
+        const shouldHide = locked || popupOpen;
+
+        controls.classList.toggle('is-hidden', shouldHide);
+        controls.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
+      }
+
+      function updateUI() {
+        prevBtn.disabled = page === 0 || locked;
+        nextBtn.disabled = locked;
+        syncControlsVisibility();
+        musicBtn.innerHTML = music.muted
+          ? `<svg viewBox="0 0 24 24" aria-hidden="true">
+               <path d="M11 5 6.8 8.4H3.5v7.2h3.3L11 19z" />
+               <path d="m16 9 5 5" />
+               <path d="m21 9-5 5" />
+             </svg>`
+          : `<svg viewBox="0 0 24 24" aria-hidden="true">
+               <path d="M11 5 6.8 8.4H3.5v7.2h3.3L11 19z" />
+               <path d="M15.4 8.1a5.4 5.4 0 0 1 0 7.8" />
+               <path d="M18.2 5.4a9.2 9.2 0 0 1 0 13.2" />
+             </svg>`;
+        musicBtn.classList.toggle('is-muted', music.muted);
+        musicBtn.setAttribute('aria-label', music.muted ? 'Play music' : 'Mute music');
+        musicBtn.title = music.muted ? 'Play music' : 'Mute music';
+      }
+
+      function hidePopup() {
+        window.clearTimeout(popupTimer);
+        window.clearTimeout(controlsRevealTimer);
+        popupOverlay.classList.remove('is-visible');
+        popupOverlay.setAttribute('aria-hidden', 'true');
+
+        /* Keep navigation hidden until the popup fade-out has completed. */
+        controlsRevealTimer = window.setTimeout(syncControlsVisibility, 440);
+      }
+
+      function showPopup() {
+        if (page !== 1 || locked) return;
+        window.clearTimeout(popupTimer);
+        window.clearTimeout(controlsRevealTimer);
+        sizePopupRainCanvas();
+
+        /* Hide navigation before revealing the popup to avoid a brief flash. */
+        controls.classList.add('is-hidden');
+        controls.setAttribute('aria-hidden', 'true');
+
+        requestAnimationFrame(() => {
+          popupOverlay.classList.add('is-visible');
+          popupOverlay.setAttribute('aria-hidden', 'false');
+          syncControlsVisibility();
+          logOnce("popup_shown");
+        });
+      }
+
+      function schedulePopup() {
+        window.clearTimeout(popupTimer);
+        if (page === 1 && !locked) {
+          popupTimer = window.setTimeout(showPopup, 2000);
+        }
+      }
+
+      function getSlideDuration() {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 180 : SLIDE_MS;
+      }
+
+      function goTo(target, manual = false) {
+        if (locked || target === page || target < 0 || target > 1 || !paperReady) return;
+
+        locked = true;
+        updateUI();
+        window.clearTimeout(autoTimer);
+        window.clearTimeout(slideTimer);
+        hidePopup();
+
+        page = target;
+
+        if (page === 0) logOnce("page1_viewed");
+        if (page === 1) logOnce("page2_viewed");
+
+        requestAnimationFrame(() => {
+          pageTrack.classList.toggle('show-page-2', page === 1);
+          showHeadline(page);
+        });
+
+        slideTimer = window.setTimeout(() => {
+          locked = false;
+          updateUI();
+          scheduleAuto();
+          schedulePopup();
+        }, getSlideDuration());
+      }
+
+      function next(manual = false) {
+        if (locked) return;
+        if (page === 0) {
+          goTo(1, manual);
+        } else if (page === 1) {
+          showPopup();
+        }
+      }
+
+      function previous(manual = false) {
+        if (page === 1) goTo(0, manual);
+      }
+
+      function scheduleAuto() {
+        window.clearTimeout(autoTimer);
+
+        /* Slide 1 automatically advances once after load. Slide 2 then remains paused. */
+        if (page === 0 && paperReady && !locked) {
+          autoTimer = window.setTimeout(() => goTo(1, false), AUTO_MS);
+        }
+      }
+
+      async function tryStartMusic() {
+        music.volume = 0.22;
+        try {
+          await music.play();
+          music.muted = false;
+          updateUI();
+        } catch (_) {
+          music.muted = true;
+          updateUI();
+        }
+      }
+
+      nextBtn.addEventListener('click', () => { next(true); tryStartMusic(); });
+      prevBtn.addEventListener('click', () => { previous(true); tryStartMusic(); });
+
+      popupOverlay.addEventListener('click', (event) => {
+        if (event.target === popupOverlay) hidePopup();
+      });
+
+      musicBtn.addEventListener('click', async () => {
+        if (music.paused) {
+          try { await music.play(); } catch (_) {}
+        }
+        music.muted = !music.muted;
+        updateUI();
+      });
+
+      document.addEventListener('keydown', (event) => {
+        const popupOpen = popupOverlay.classList.contains('is-visible');
+
+        if (event.key === 'Escape' && popupOpen) {
+          hidePopup();
+          return;
+        }
+
+        if (popupOpen) return;
+        if (event.key === 'ArrowRight' || event.key === 'PageDown') next(true);
+        if (event.key === 'ArrowLeft' || event.key === 'PageUp') previous(true);
+      });
+
+      stage.addEventListener('touchstart', (event) => {
+        const t = event.changedTouches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        horizontalSwipe = false;
+        tryStartMusic();
+      }, { passive: true });
+
+      stage.addEventListener('touchmove', (event) => {
+        const t = event.changedTouches[0];
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+          horizontalSwipe = true;
+          event.preventDefault();
+        }
+      }, { passive: false });
+
+      stage.addEventListener('touchend', (event) => {
+        const t = event.changedTouches[0];
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+
+        if (horizontalSwipe && Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+          dx < 0 ? next(true) : previous(true);
+        }
+
+        horizontalSwipe = false;
+      }, { passive: true });
+
+      stage.addEventListener('touchcancel', () => {
+        horizontalSwipe = false;
+      }, { passive: true });
+
+      ['pointerdown', 'keydown'].forEach(type => {
+        window.addEventListener(type, tryStartMusic, { once: true, passive: true });
+      });
+
+      window.addEventListener('resize', () => {
+        fitStage();
+        sizePopupRainCanvas();
+      });
+
+      popupImageEl.addEventListener('load', () => {
+        sizePopupRainCanvas();
+      });
+
+      fitStage();
+      sizePopupRainCanvas();
+      pageTrack.classList.remove('show-page-2');
+      showHeadline(0);
+      updateUI();
+      scheduleAuto();
+      tryStartMusic();
+
+      function createRainSystem(canvas, options = {}) {
+        const ctx = canvas.getContext('2d');
+        const drops = [];
+        const splashes = [];
+        const density = options.density || 110;
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        let W = canvas.width;
+        let H = canvas.height;
+
+        function syncSize() {
+          if (options.dynamicSize) {
+            const rect = canvas.getBoundingClientRect();
+            const width = Math.max(1, Math.round(rect.width * dpr));
+            const height = Math.max(1, Math.round(rect.height * dpr));
+
+            /* Resize only the drawing buffer; CSS remains 100% of the popup card. */
+            if (canvas.width !== width || canvas.height !== height) {
+              canvas.width = width;
+              canvas.height = height;
+            }
+          }
+          W = canvas.width;
+          H = canvas.height;
+        }
+
+        function makeDrop(initial = false) {
+          const rainScale = options.rainScale || 1;
+          return {
+            x: Math.random() * (W + 18) - 9,
+            y: initial ? Math.random() * H : -18,
+            len: (7 + Math.random() * 9) * rainScale,
+            speed: (3.1 + Math.random() * 2.7) * rainScale,
+            drift: -0.16 - Math.random() * 0.18,
+            alpha: 0.36 + Math.random() * 0.30,
+            width: (0.68 + Math.random() * 0.52) * rainScale
+          };
+        }
+
+        function addSplash(x) {
+          if (Math.random() > 0.22) return;
+          splashes.push({
+            x,
+            y: H - 4 - Math.random() * 5,
+            radius: 0.7 + Math.random() * 0.45,
+            alpha: 0.30 + Math.random() * 0.10,
+            growth: 0.15 + Math.random() * 0.13,
+            crown: 2 + Math.floor(Math.random() * 3)
+          });
+        }
+
+        function seedDrops() {
+          drops.length = 0;
+          for (let i = 0; i < density; i++) drops.push(makeDrop(true));
+        }
+
+        function drawRain() {
+          syncSize();
+          ctx.clearRect(0, 0, W, H);
+          ctx.lineCap = 'round';
+
+          for (let i = 0; i < drops.length; i++) {
+            const d = drops[i];
+            const endX = d.x + d.drift * d.len;
+            const endY = d.y + d.len;
+
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(116,124,128,${d.alpha * 0.42})`;
+            ctx.lineWidth = d.width + 0.38;
+            ctx.moveTo(d.x, d.y);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(246,248,248,${d.alpha})`;
+            ctx.lineWidth = Math.max(0.38, d.width * 0.52);
+            ctx.moveTo(d.x + 0.2, d.y);
+            ctx.lineTo(endX + 0.2, endY);
+            ctx.stroke();
+
+            d.x += d.drift;
+            d.y += d.speed;
+
+            if (d.y > H + 24 || d.x < -28) {
+              addSplash(Math.max(5, Math.min(W - 5, d.x)));
+              drops[i] = makeDrop(false);
+            }
+          }
+
+          for (let i = splashes.length - 1; i >= 0; i--) {
+            const s = splashes[i];
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(238,242,243,${s.alpha})`;
+            ctx.lineWidth = 0.62;
+            ctx.ellipse(s.x, s.y, s.radius * 1.85, s.radius * 0.52, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            for (let n = 0; n < s.crown; n++) {
+              const angle = -Math.PI * (0.22 + (n / Math.max(1, s.crown - 1)) * 0.56);
+              const reach = s.radius * (1.45 + n * 0.12);
+              ctx.beginPath();
+              ctx.strokeStyle = `rgba(248,250,250,${s.alpha * 0.82})`;
+              ctx.lineWidth = 0.48;
+              ctx.moveTo(s.x, s.y - 0.2);
+              ctx.lineTo(s.x + Math.cos(angle) * reach, s.y + Math.sin(angle) * reach);
+              ctx.stroke();
+            }
+
+            s.radius += s.growth;
+            s.alpha -= 0.032;
+            if (s.alpha <= 0) splashes.splice(i, 1);
+          }
+
+          requestAnimationFrame(drawRain);
+        }
+
+        syncSize();
+        seedDrops();
+        drawRain();
+        return { syncSize, seedDrops };
+      }
+
+      function sizePopupRainCanvas() {
+        const card = popupImageEl.closest('.popup-card');
+        if (!card || !card.offsetWidth || !card.offsetHeight) return;
+
+        /*
+         * Keep the canvas at 100% of the popup card.
+         * Do not copy getBoundingClientRect() values into CSS here:
+         * the whole stage is already scaled on mobile, which otherwise
+         * scales the rain canvas a second time and leaves part of the image uncovered.
+         */
+        popupRainCanvas.style.width = '100%';
+        popupRainCanvas.style.height = '100%';
+      }
+
+      createRainSystem(document.getElementById('rainCanvas'), { density: 150, rainScale: 1 });
+      createRainSystem(popupRainCanvas, { density: 165, rainScale: 1.12, dynamicSize: true });
+    })();
+  </script>
+</body>
+</html>
